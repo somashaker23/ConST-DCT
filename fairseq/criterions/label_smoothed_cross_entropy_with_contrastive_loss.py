@@ -117,6 +117,11 @@ class LabelSmoothedCrossEntropyWithContrastiveCriterion(LabelSmoothedCrossEntrop
         seq_hidden = (encoder_out * encoder_padding_mask.unsqueeze(-1)).sum(dim=1) / encoder_padding_mask.sum(dim=1).unsqueeze(-1)
         return seq_hidden, short_audio_len
 
+    def addDCT(self,logits):
+        logits  = -torch.nn.softmax(0)(logits)
+        lossDCT = torch.log(torch.add(logits, 1))
+
+        return lossDCT
     def compute_contrastive_loss(self, model, sample, encoder_out,
                                  reduce=True, return_short_audio_len=True):
         audio_seq_hidden, short_audio_len = self.get_sequence_hidden(model, sample, encoder_out,
@@ -136,11 +141,12 @@ class LabelSmoothedCrossEntropyWithContrastiveCriterion(LabelSmoothedCrossEntrop
             loss = loss_audio + loss_text
         else:
             loss = -torch.nn.LogSoftmax(0)(logits).diag()
+            loss = torch.sub(loss,addDCT(logits))
 
         if reduce:
             loss = loss.sum()
         return loss, short_audio_len
-
+    
     @classmethod
     def reduce_metrics(cls, logging_outputs) -> None:
         """Aggregate logging outputs from data parallel training."""
